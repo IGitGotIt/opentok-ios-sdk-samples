@@ -17,22 +17,38 @@ static NSString* const kSessionId = @"";
 // Replace with your generated token
 static NSString* const kToken = @"";
 
-@interface ViewController ()<OTSessionDelegate, OTSubscriberDelegate, OTPublisherDelegate>
+NSMutableArray * q;
+NSMutableArray * subscriberArray;
+
+@interface ViewController ()<OTSessionDelegate, OTSubscriberDelegate, OTPublisherDelegate, OTPublisherKitAudioLevelDelegate>
 @property (nonatomic) OTSession *session;
 @property (nonatomic) OTPublisher *publisher;
 @property (nonatomic) OTSubscriber *subscriber;
 @end
 
 @implementation ViewController
-static double widgetHeight = 240;
-static double widgetWidth = 320;
-
+static double widgetHeight = 120;
+static double widgetWidth = 160;
+int count = 0;
 #pragma mark - View lifecycle
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    
+
+    q = [[NSMutableArray alloc] init];
+    subscriberArray = [[NSMutableArray alloc] init];
+//    NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:0.2
+//          target:[NSBlockOperation blockOperationWithBlock:^{
+//        for (OTSubscriber* s in subscriberArray) {
+//            s.preferredResolution = CGSizeMake(100, 100);
+//        }
+//        NSLog(@"preferredResolution set for %lu subscribers", (unsigned long)subscriberArray.count);
+//    }]
+//          selector:@selector(main)
+//          userInfo:nil
+//          repeats:YES
+//    ];
     // Step 1: As the view comes into the foreground, initialize a new instance
     // of OTSession and begin the connection process.
     _session = [[OTSession alloc] initWithApiKey:kApiKey
@@ -40,6 +56,11 @@ static double widgetWidth = 320;
                                         delegate:self];
     [self doConnect];
 }
+- (void)publisher:(nonnull OTPublisherKit*)publisher
+audioLevelUpdated:(float)audioLevel {
+    NSLog(@"audio level is %f", audioLevel);
+}
+
 
 - (BOOL)prefersStatusBarHidden
 {
@@ -73,10 +94,11 @@ static double widgetWidth = 320;
  */
 - (void)doPublish
 {
+   // return;
     OTPublisherSettings *settings = [[OTPublisherSettings alloc] init];
     settings.name = [UIDevice currentDevice].name;
     _publisher = [[OTPublisher alloc] initWithDelegate:self settings:settings];
-   
+    _publisher.audioLevelDelegate = self;
     OTError *error = nil;
     [_session publish:_publisher error:&error];
     if (error)
@@ -104,10 +126,12 @@ static double widgetWidth = 320;
  * this method does not add the subscriber to the view hierarchy. Instead, we 
  * add the subscriber only after it has connected and begins receiving data.
  */
+
 - (void)doSubscribe:(OTStream*)stream
 {
+    NSLog(@"doSubscribe (%@) ", stream.streamId );
     _subscriber = [[OTSubscriber alloc] initWithStream:stream delegate:self];
-    
+   // _subscriber.subscribeToAudio = false;
     OTError *error = nil;
     [_session subscribe:_subscriber error:&error];
     if (error)
@@ -151,12 +175,16 @@ static double widgetWidth = 320;
 - (void)session:(OTSession*)mySession
   streamCreated:(OTStream *)stream
 {
-    NSLog(@"session streamCreated (%@)", stream.streamId);
-    
-    if (nil == _subscriber)
-    {
-        [self doSubscribe:stream];
+    NSLog(@"session streamCreated (%@) ", stream.streamId );
+    [q addObject:stream];
+    if (q.count == 1) {
+      
+       [self doSubscribe:stream];
     }
+   
+
+
+
 }
 
 - (void)session:(OTSession*)session
@@ -197,20 +225,40 @@ didFailWithError:(OTError*)error
 
 - (void)subscriberDidConnectToStream:(OTSubscriberKit*)subscriber
 {
-    NSLog(@"subscriberDidConnectToStream (%@)",
-          subscriber.stream.connection.connectionId);
-    assert(_subscriber == subscriber);
-    [_subscriber.view setFrame:CGRectMake(0, widgetHeight, widgetWidth,
+    count++;
+    NSLog(@"subscriberDidConnectToStream (%@) %d",
+          subscriber.stream.connection.connectionId, count);
+    OTStream * s = [q objectAtIndex:0];
+    [q removeObjectAtIndex:0];
+    
+    if (q.count > 0) {
+        s = [q objectAtIndex:0];
+        [self doSubscribe:s];
+    }
+    
+    [_subscriber.view setFrame:CGRectMake(0, count * widgetHeight, widgetWidth,
                                          widgetHeight)];
     [self.view addSubview:_subscriber.view];
+    [subscriberArray addObject:subscriber];
+   
 }
 
 - (void)subscriber:(OTSubscriberKit*)subscriber
   didFailWithError:(OTError*)error
 {
-    NSLog(@"subscriber %@ didFailWithError %@",
-          subscriber.stream.streamId,
-          error);
+//    NSLog(@"subscriber %@ didFailWithError %@",
+//          subscriber.stream.streamId,
+//          error);
+    count++;
+    NSLog(@"subscriber didFailWithError (%@) %d",
+          subscriber.stream.connection.connectionId, count);
+    OTStream * s = [q objectAtIndex:0];
+    [q removeObjectAtIndex:0];
+    
+    if (q.count > 0) {
+        s = [q objectAtIndex:0];
+        [self doSubscribe:s];
+    }
 }
 
 # pragma mark - OTPublisher delegate callbacks
@@ -219,6 +267,7 @@ didFailWithError:(OTError*)error
     streamCreated:(OTStream *)stream
 {
     NSLog(@"Publishing");
+
 }
 
 - (void)publisher:(OTPublisherKit*)publisher
