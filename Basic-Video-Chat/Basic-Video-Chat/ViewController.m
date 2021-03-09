@@ -11,14 +11,16 @@
 // *** Fill the following variables using your own Project info  ***
 // ***          https://dashboard.tokbox.com/projects            ***
 // Replace with your OpenTok API key
-static NSString* const kApiKey = @"";
+static NSString* const kApiKey = @"100";
 // Replace with your generated session ID
-static NSString* const kSessionId = @"";
+static NSString* const kSessionId = @"2_MX4xMDB-fjE2MTUyNjg0MTMwMzl-WThISXFCMzI0cjB2TWxHOHBMcUhFMXhnfn4";
 // Replace with your generated token
-static NSString* const kToken = @"";
+static NSString* const kToken = @"T1==cGFydG5lcl9pZD0xMDAmc2RrX3ZlcnNpb249dGJwaHAtdjAuOTEuMjAxMS0wNy0wNSZzaWc9MzE3YTdkZjZlODk4MjFiYmJkNGM0NGEzN2UxMDNhMzhmN2E0MTNmODpzZXNzaW9uX2lkPTJfTVg0eE1EQi1makUyTVRVeU5qZzBNVE13TXpsLVdUaElTWEZDTXpJMGNqQjJUV3hIT0hCTWNVaEZNWGhuZm40JmNyZWF0ZV90aW1lPTE2MTUyNjg0MTMmcm9sZT1tb2RlcmF0b3Imbm9uY2U9MTYxNTI2ODQxMy4xMjQ4MTQzOTYxMDYmZXhwaXJlX3RpbWU9MTYxNzg2MDQxMw==";
+#define SUBSCRIBERS_IN_PARALLEL 1
+NSMutableArray * streams;
+NSMutableArray * subscribersConnected;
+NSMutableArray* subscribersInit;
 
-NSMutableArray * q;
-NSMutableArray * subscriberArray;
 
 @interface ViewController ()<OTSessionDelegate, OTSubscriberDelegate, OTPublisherDelegate, OTPublisherKitAudioLevelDelegate>
 @property (nonatomic) OTSession *session;
@@ -27,17 +29,18 @@ NSMutableArray * subscriberArray;
 @end
 
 @implementation ViewController
-static double widgetHeight = 120;
-static double widgetWidth = 160;
-int count = 0;
+static double widgetHeight = 12;
+static double widgetWidth = 16;
+
 #pragma mark - View lifecycle
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
 
-    q = [[NSMutableArray alloc] init];
-    subscriberArray = [[NSMutableArray alloc] init];
+    streams = [[NSMutableArray alloc] init];
+    subscribersConnected = [[NSMutableArray alloc] init];
+    subscribersInit = [[NSMutableArray alloc] init];
 //    NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:0.2
 //          target:[NSBlockOperation blockOperationWithBlock:^{
 //        for (OTSubscriber* s in subscriberArray) {
@@ -49,6 +52,32 @@ int count = 0;
 //          userInfo:nil
 //          repeats:YES
 //    ];
+    
+        NSTimer *timer2 = [NSTimer scheduledTimerWithTimeInterval:1
+              target:[NSBlockOperation blockOperationWithBlock:^{
+            NSLog(@"in Timer 2...");
+            NSLog(@"number of streams %lu", (unsigned long)streams.count);
+            NSLog(@"number of initialized subscribers ** %lu **", subscribersInit.count);
+            NSLog(@"number of connected subscribers ** %lu **", subscribersConnected.count);
+            for (int i=0; i < SUBSCRIBERS_IN_PARALLEL; i = i+1) {
+                @try {
+                    OTStream * stream = streams[i];
+                    if(stream == nil) break;
+                    [self doSubscribe:stream];
+                    [streams removeObject:stream];
+                   
+                } @catch (NSException *exception) {
+                    
+                    break;
+                }
+                
+            }
+        
+            }]
+              selector:@selector(main)
+              userInfo:nil
+              repeats:YES
+        ];
     // Step 1: As the view comes into the foreground, initialize a new instance
     // of OTSession and begin the connection process.
     _session = [[OTSession alloc] initWithApiKey:kApiKey
@@ -98,7 +127,7 @@ audioLevelUpdated:(float)audioLevel {
     OTPublisherSettings *settings = [[OTPublisherSettings alloc] init];
     settings.name = [UIDevice currentDevice].name;
     _publisher = [[OTPublisher alloc] initWithDelegate:self settings:settings];
-    _publisher.audioLevelDelegate = self;
+    //_publisher.audioLevelDelegate = self;
     OTError *error = nil;
     [_session publish:_publisher error:&error];
     if (error)
@@ -130,13 +159,15 @@ audioLevelUpdated:(float)audioLevel {
 - (void)doSubscribe:(OTStream*)stream
 {
     NSLog(@"doSubscribe (%@) ", stream.streamId );
-    _subscriber = [[OTSubscriber alloc] initWithStream:stream delegate:self];
+    OTSubscriber *s = [[OTSubscriber alloc] initWithStream:stream delegate:self];
    // _subscriber.subscribeToAudio = false;
     OTError *error = nil;
-    [_session subscribe:_subscriber error:&error];
+    [_session subscribe:s error:&error];
     if (error)
     {
         [self showAlert:[error localizedDescription]];
+    } else {
+        [subscribersInit addObject:s];
     }
 }
 
@@ -176,15 +207,7 @@ audioLevelUpdated:(float)audioLevel {
   streamCreated:(OTStream *)stream
 {
     NSLog(@"session streamCreated (%@) ", stream.streamId );
-    [q addObject:stream];
-    if (q.count == 1) {
-      
-       [self doSubscribe:stream];
-    }
-   
-
-
-
+    [streams addObject:stream];
 }
 
 - (void)session:(OTSession*)session
@@ -225,40 +248,27 @@ didFailWithError:(OTError*)error
 
 - (void)subscriberDidConnectToStream:(OTSubscriberKit*)subscriber
 {
-    count++;
-    NSLog(@"subscriberDidConnectToStream (%@) %d",
-          subscriber.stream.connection.connectionId, count);
-    OTStream * s = [q objectAtIndex:0];
-    [q removeObjectAtIndex:0];
+    [subscribersConnected addObject:subscriber];
     
-    if (q.count > 0) {
-        s = [q objectAtIndex:0];
-        [self doSubscribe:s];
-    }
-    
-    [_subscriber.view setFrame:CGRectMake(0, count * widgetHeight, widgetWidth,
+    NSLog(@"subscriberDidConnectToStream (%@) %lu",
+          subscriber.stream.streamId, (unsigned long)subscribersConnected.count);
+  
+     
+    OTSubscriber * s = (OTSubscriber *) subscriber;
+    [s.view setFrame:CGRectMake(0, subscribersConnected.count * widgetHeight, widgetWidth,
                                          widgetHeight)];
-    [self.view addSubview:_subscriber.view];
-    [subscriberArray addObject:subscriber];
+    [self.view addSubview:s.view];
+
    
 }
 
 - (void)subscriber:(OTSubscriberKit*)subscriber
   didFailWithError:(OTError*)error
 {
-//    NSLog(@"subscriber %@ didFailWithError %@",
-//          subscriber.stream.streamId,
-//          error);
-    count++;
-    NSLog(@"subscriber didFailWithError (%@) %d",
-          subscriber.stream.connection.connectionId, count);
-    OTStream * s = [q objectAtIndex:0];
-    [q removeObjectAtIndex:0];
-    
-    if (q.count > 0) {
-        s = [q objectAtIndex:0];
-        [self doSubscribe:s];
-    }
+     NSLog(@"subscriber didFailWithError (%@)",
+          subscriber.stream.streamId);
+    [streams removeObject:subscriber];
+  
 }
 
 # pragma mark - OTPublisher delegate callbacks
