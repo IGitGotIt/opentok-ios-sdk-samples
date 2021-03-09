@@ -7,39 +7,48 @@
 
 #import "ViewController.h"
 #import <OpenTok/OpenTok.h>
+#import "OTSubscriberOperation.h"
 
+#define MAX_SUBSCRIBERS_COUNT 40
+#define PARALLEL_SUBSCRIBERS 2
 // *** Fill the following variables using your own Project info  ***
 // ***          https://dashboard.tokbox.com/projects            ***
 // Replace with your OpenTok API key
-static NSString* const kApiKey = @"";
+static NSString* const kApiKey = @"100";
 // Replace with your generated session ID
-static NSString* const kSessionId = @"";
+static NSString* const kSessionId = @"2_MX4xMDB-fjE2MTQ3MjA4NjU2NjN-REdBazFaOHRJUXI3dUdTa2UwVUdqUm5LflB-";
 // Replace with your generated token
-static NSString* const kToken = @"";
+static NSString* const kToken = @"T1==cGFydG5lcl9pZD0xMDAmc2RrX3ZlcnNpb249dGJwaHAtdjAuOTEuMjAxMS0wNy0wNSZzaWc9NmRkNjE0OGYzODE1NmIzMGNkZGEwOTM3MzJkZDU1NTE2MTA4YTRmNDpzZXNzaW9uX2lkPTJfTVg0eE1EQi1makUyTVRRM01qQTROalUyTmpOLVJFZEJhekZhT0hSSlVYSTNkVWRUYTJVd1ZVZHFVbTVMZmxCLSZjcmVhdGVfdGltZT0xNjE0NzIwODY1JnJvbGU9bW9kZXJhdG9yJm5vbmNlPTE2MTQ3MjA4NjUuNzE1Njk1MjQ5OTczNiZleHBpcmVfdGltZT0xNjE3MzEyODY1";
 
-NSMutableArray * q;
-NSMutableArray * subscriberArray;
 
-@interface ViewController ()<OTSessionDelegate, OTSubscriberDelegate, OTPublisherDelegate, OTPublisherKitAudioLevelDelegate>
+@interface ViewController ()<OTSessionDelegate, myOTSubscriberKitDelegate, OTPublisherDelegate, OTPublisherKitAudioLevelDelegate>
 @property (nonatomic) OTSession *session;
 @property (nonatomic) OTPublisher *publisher;
-@property (nonatomic) OTSubscriber *subscriber;
+@property (nonatomic, strong) NSOperationQueue * opQueue;
+@property (nonatomic, strong) NSMutableDictionary * operations;
+@property (nonatomic, strong) NSMutableArray * connectedSubscribers;
+
 @end
 
 @implementation ViewController
-static double widgetHeight = 120;
-static double widgetWidth = 160;
+static double widgetHeight = 12;
+static double widgetWidth = 16;
 int count = 0;
+int streamCount = 0;
+
 #pragma mark - View lifecycle
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
 
-    q = [[NSMutableArray alloc] init];
-    subscriberArray = [[NSMutableArray alloc] init];
+    self.operations = [[NSMutableDictionary alloc] initWithCapacity:MAX_SUBSCRIBERS_COUNT];
+    self.connectedSubscribers = [[NSMutableArray alloc] init];
+    self.opQueue = NSOperationQueue.mainQueue;
+    [self.opQueue setMaxConcurrentOperationCount:PARALLEL_SUBSCRIBERS];
+    
 //    NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:0.2
-//          target:[NSBlockOperation blockOperationWithBlock:^{
+//         target:[NSBlockOperation blockOperationWithBlock:^{
 //        for (OTSubscriber* s in subscriberArray) {
 //            s.preferredResolution = CGSizeMake(100, 100);
 //        }
@@ -98,7 +107,7 @@ audioLevelUpdated:(float)audioLevel {
     OTPublisherSettings *settings = [[OTPublisherSettings alloc] init];
     settings.name = [UIDevice currentDevice].name;
     _publisher = [[OTPublisher alloc] initWithDelegate:self settings:settings];
-    _publisher.audioLevelDelegate = self;
+    //_publisher.audioLevelDelegate = self;
     OTError *error = nil;
     [_session publish:_publisher error:&error];
     if (error)
@@ -127,18 +136,7 @@ audioLevelUpdated:(float)audioLevel {
  * add the subscriber only after it has connected and begins receiving data.
  */
 
-- (void)doSubscribe:(OTStream*)stream
-{
-    NSLog(@"doSubscribe (%@) ", stream.streamId );
-    _subscriber = [[OTSubscriber alloc] initWithStream:stream delegate:self];
-   // _subscriber.subscribeToAudio = false;
-    OTError *error = nil;
-    [_session subscribe:_subscriber error:&error];
-    if (error)
-    {
-        [self showAlert:[error localizedDescription]];
-    }
-}
+
 
 /**
  * Cleans the subscriber from the view hierarchy, if any.
@@ -146,11 +144,7 @@ audioLevelUpdated:(float)audioLevel {
  * a streamDestroyed event. Any subscribers (or the publisher) for a stream will
  * be automatically removed from the session during cleanup of the stream.
  */
-- (void)cleanupSubscriber
-{
-    [_subscriber.view removeFromSuperview];
-    _subscriber = nil;
-}
+
 
 # pragma mark - OTSession delegate callbacks
 
@@ -176,14 +170,19 @@ audioLevelUpdated:(float)audioLevel {
   streamCreated:(OTStream *)stream
 {
     NSLog(@"session streamCreated (%@) ", stream.streamId );
-    [q addObject:stream];
-    if (q.count == 1) {
-      
-       [self doSubscribe:stream];
+    if (self.operations.count > MAX_SUBSCRIBERS_COUNT) {
+        NSLog(@"Cannot add any more subscribers, limited to %d", MAX_SUBSCRIBERS_COUNT );
+        return;
     }
-   
 
+    
+    OTSubscriberOperation * op = [[OTSubscriberOperation alloc] initWithSubscriber:stream forSession:_session atCount:++streamCount];
+    op.delegate = self;
+    
+    [self.operations setValue:op forKey:stream.streamId];
 
+   // [self.opQueue addOperation:op];
+    
 
 }
 
@@ -192,10 +191,7 @@ streamDestroyed:(OTStream *)stream
 {
     NSLog(@"session streamDestroyed (%@)", stream.streamId);
     
-    if ([_subscriber.stream.streamId isEqualToString:stream.streamId])
-    {
-        [self cleanupSubscriber];
-    }
+
 }
 
 - (void)  session:(OTSession *)session
@@ -208,11 +204,7 @@ connectionCreated:(OTConnection *)connection
 connectionDestroyed:(OTConnection *)connection
 {
     NSLog(@"session connectionDestroyed (%@)", connection.connectionId);
-    if ([_subscriber.stream.connection.connectionId
-         isEqualToString:connection.connectionId])
-    {
-        [self cleanupSubscriber];
-    }
+ 
 }
 
 - (void) session:(OTSession*)session
@@ -222,25 +214,37 @@ didFailWithError:(OTError*)error
 }
 
 # pragma mark - OTSubscriber delegate callbacks
-
+- (void)doSubscribe:(OTStream*)stream usingOp:(OTSubscriberOperation *) op
+{
+    NSLog(@"doSubscribe (%@) %lu",
+          stream.streamId, (unsigned long)op.countedAt);
+    OTSubscriber *  sub = [[OTSubscriber alloc] initWithStream:stream delegate:op.delegate];
+    
+    OTError *error = nil;
+    [_session subscribe:sub error:&error];
+    if (error)
+    {
+        [self showAlert:[error localizedDescription]];
+    }
+}
 - (void)subscriberDidConnectToStream:(OTSubscriberKit*)subscriber
 {
-    count++;
-    NSLog(@"subscriberDidConnectToStream (%@) %d",
-          subscriber.stream.connection.connectionId, count);
-    OTStream * s = [q objectAtIndex:0];
-    [q removeObjectAtIndex:0];
     
-    if (q.count > 0) {
-        s = [q objectAtIndex:0];
-        [self doSubscribe:s];
+    
+    OTSubscriberOperation * op = [self.operations objectForKey:subscriber.stream.streamId];
+    if (op == nil) {
+        return;
     }
+    NSLog(@"subscriberDidConnectToStream (%@) %lu",
+          subscriber.stream.streamId, (unsigned long)op.countedAt);
+    OTSubscriber * sub = (OTSubscriber*) subscriber;
     
-    [_subscriber.view setFrame:CGRectMake(0, count * widgetHeight, widgetWidth,
+    [sub.view setFrame:CGRectMake(0, op.countedAt * widgetHeight, widgetWidth,
                                          widgetHeight)];
-    [self.view addSubview:_subscriber.view];
-    [subscriberArray addObject:subscriber];
-   
+    [self.view addSubview:sub.view];
+    [op tearDown];
+
+    
 }
 
 - (void)subscriber:(OTSubscriberKit*)subscriber
@@ -252,13 +256,7 @@ didFailWithError:(OTError*)error
     count++;
     NSLog(@"subscriber didFailWithError (%@) %d",
           subscriber.stream.connection.connectionId, count);
-    OTStream * s = [q objectAtIndex:0];
-    [q removeObjectAtIndex:0];
     
-    if (q.count > 0) {
-        s = [q objectAtIndex:0];
-        [self doSubscribe:s];
-    }
 }
 
 # pragma mark - OTPublisher delegate callbacks
@@ -273,10 +271,7 @@ didFailWithError:(OTError*)error
 - (void)publisher:(OTPublisherKit*)publisher
   streamDestroyed:(OTStream *)stream
 {
-    if ([_subscriber.stream.streamId isEqualToString:stream.streamId])
-    {
-        [self cleanupSubscriber];
-    }
+
     
     [self cleanupPublisher];
 }

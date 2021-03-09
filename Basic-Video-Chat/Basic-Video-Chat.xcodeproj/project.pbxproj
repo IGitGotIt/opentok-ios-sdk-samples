@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F4A3C0825F6AE25001D408E /* OTSubscriberOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = 1F4A3C0725F6AE25001D408E /* OTSubscriberOperation.m */; };
 		A05376311EB173CC00645696 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A05376251EB173CC00645696 /* AppDelegate.m */; };
 		A05376321EB173CC00645696 /* Main_iPad.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A05376261EB173CC00645696 /* Main_iPad.storyboard */; };
 		A05376331EB173CC00645696 /* Main_iPhone.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A05376281EB173CC00645696 /* Main_iPhone.storyboard */; };
@@ -15,9 +16,13 @@
 		A05376361EB173CC00645696 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A053762D1EB173CC00645696 /* main.m */; };
 		A05376371EB173CC00645696 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A053762F1EB173CC00645696 /* ViewController.m */; };
 		D442614C185F92C000E23699 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = D442614B185F92BF00E23699 /* README.md */; };
+		E4CEE3DFF3B5D9924FC1BF37 /* Pods_Basic_Video_Chat.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CCD0FEA15C9B03EA01F5AF09 /* Pods_Basic_Video_Chat.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1F4A3C0725F6AE25001D408E /* OTSubscriberOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OTSubscriberOperation.m; sourceTree = "<group>"; };
+		1F4A3C0B25F6AE95001D408E /* OTSubscriberOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTSubscriberOperation.h; sourceTree = "<group>"; };
+		28374E1B05C8CD25CA450C56 /* Pods-Basic-Video-Chat.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Basic-Video-Chat.release.xcconfig"; path = "Target Support Files/Pods-Basic-Video-Chat/Pods-Basic-Video-Chat.release.xcconfig"; sourceTree = "<group>"; };
 		A05376221EB173CC00645696 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A05376241EB173CC00645696 /* AppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		A05376251EB173CC00645696 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -28,6 +33,8 @@
 		A053762D1EB173CC00645696 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		A053762E1EB173CC00645696 /* ViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
 		A053762F1EB173CC00645696 /* ViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
+		BACB07B177FB15606557EB3A /* Pods-Basic-Video-Chat.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Basic-Video-Chat.debug.xcconfig"; path = "Target Support Files/Pods-Basic-Video-Chat/Pods-Basic-Video-Chat.debug.xcconfig"; sourceTree = "<group>"; };
+		CCD0FEA15C9B03EA01F5AF09 /* Pods_Basic_Video_Chat.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Basic_Video_Chat.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D44260F3185F81D800E23699 /* Basic-Video-Chat.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Basic-Video-Chat.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D44260F6185F81D800E23699 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		D44260FA185F81D800E23699 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
@@ -39,12 +46,22 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E4CEE3DFF3B5D9924FC1BF37 /* Pods_Basic_Video_Chat.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		75D3B85F5AF48D0EDB366986 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				28374E1B05C8CD25CA450C56 /* Pods-Basic-Video-Chat.release.xcconfig */,
+				BACB07B177FB15606557EB3A /* Pods-Basic-Video-Chat.debug.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		A05376211EB173CC00645696 /* Basic-Video-Chat */ = {
 			isa = PBXGroup;
 			children = (
@@ -58,6 +75,8 @@
 				A053762D1EB173CC00645696 /* main.m */,
 				A053762E1EB173CC00645696 /* ViewController.h */,
 				A053762F1EB173CC00645696 /* ViewController.m */,
+				1F4A3C0725F6AE25001D408E /* OTSubscriberOperation.m */,
+				1F4A3C0B25F6AE95001D408E /* OTSubscriberOperation.h */,
 			);
 			path = "Basic-Video-Chat";
 			sourceTree = "<group>";
@@ -69,6 +88,7 @@
 				A05376211EB173CC00645696 /* Basic-Video-Chat */,
 				D44260F5185F81D800E23699 /* Frameworks */,
 				D44260F4185F81D800E23699 /* Products */,
+				75D3B85F5AF48D0EDB366986 /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
@@ -85,6 +105,7 @@
 			children = (
 				D44260F6185F81D800E23699 /* Foundation.framework */,
 				D44260FA185F81D800E23699 /* UIKit.framework */,
+				CCD0FEA15C9B03EA01F5AF09 /* Pods_Basic_Video_Chat.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -96,6 +117,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = D4426128185F81D800E23699 /* Build configuration list for PBXNativeTarget "Basic-Video-Chat" */;
 			buildPhases = (
+				B2AB1933BB13759302409A90 /* [CP] Check Pods Manifest.lock */,
 				D44260EF185F81D800E23699 /* Sources */,
 				D44260F0185F81D800E23699 /* Frameworks */,
 				D44260F1185F81D800E23699 /* Resources */,
@@ -119,8 +141,8 @@
 				ORGANIZATIONNAME = "TokBox, Inc.";
 				TargetAttributes = {
 					D44260F2185F81D800E23699 = {
-						DevelopmentTeam = E69WFXMSE9;
-						ProvisioningStyle = Manual;
+						DevelopmentTeam = E37FZSUGQP;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -157,6 +179,31 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		B2AB1933BB13759302409A90 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Basic-Video-Chat-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		D44260EF185F81D800E23699 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -164,6 +211,7 @@
 			files = (
 				A05376371EB173CC00645696 /* ViewController.m in Sources */,
 				A05376361EB173CC00645696 /* main.m in Sources */,
+				1F4A3C0825F6AE25001D408E /* OTSubscriberOperation.m in Sources */,
 				A05376311EB173CC00645696 /* AppDelegate.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -244,9 +292,12 @@
 		};
 		D442612A185F81D800E23699 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 28374E1B05C8CD25CA450C56 /* Pods-Basic-Video-Chat.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = E37FZSUGQP;
 				ENABLE_BITCODE = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -256,8 +307,14 @@
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "$(SRCROOT)/Basic-Video-Chat/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.4;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tokbox.Basic-Video-Chat";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-fvisibility=default",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tokbox.jai;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				UNEXPORTED_SYMBOLS_FILE = "";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Release;
@@ -310,9 +367,12 @@
 		};
 		F8DE15D21D95710C00EFFA79 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BACB07B177FB15606557EB3A /* Pods-Basic-Video-Chat.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = E37FZSUGQP;
 				ENABLE_BITCODE = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -322,8 +382,14 @@
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "$(SRCROOT)/Basic-Video-Chat/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.4;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.tokbox.Basic-Video-Chat";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-fvisibility=default",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tokbox.jai;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				UNEXPORTED_SYMBOLS_FILE = "";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Debug;
