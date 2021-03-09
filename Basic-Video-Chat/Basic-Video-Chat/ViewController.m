@@ -22,6 +22,7 @@ NSMutableArray * subscribersConnected;
 int subConnected = 0;
 bool fNextBatch = true;
 NSTimer *timer2;
+int idleTimerCount = 0;
 
 @interface ViewController ()<OTSessionDelegate, OTSubscriberDelegate, OTPublisherDelegate, OTPublisherKitAudioLevelDelegate>
 @property (nonatomic) OTSession *session;
@@ -54,7 +55,7 @@ static double widgetWidth = 16;
 //          repeats:YES
 //    ];
         
-        timer2 = [NSTimer scheduledTimerWithTimeInterval:5
+        timer2 = [NSTimer scheduledTimerWithTimeInterval:2
               target:[NSBlockOperation blockOperationWithBlock:^{
             NSLog(@"in Timer 2...");
             NSLog(@"number of streams %lu", (unsigned long)streams.count);
@@ -67,6 +68,7 @@ static double widgetWidth = 16;
                         [self doSubscribe:stream];
                         [streams removeObject:stream];
                     }
+                    
                 }
                 @catch (NSException *exception) {
                     
@@ -210,9 +212,13 @@ audioLevelUpdated:(float)audioLevel {
   streamCreated:(OTStream *)stream
 {
     NSLog(@"session streamCreated (%@) ", stream.streamId );
-    [streams addObject:stream];
-   
-    
+    if(streams.count > 40) {
+        //throw an error / inform the user
+        return;
+       
+    } else {
+        [streams addObject:stream];
+    }
 }
 
 - (void)session:(OTSession*)session
@@ -279,9 +285,20 @@ didFailWithError:(OTError*)error
 - (void)subscriber:(OTSubscriberKit*)subscriber
   didFailWithError:(OTError*)error
 {
-     NSLog(@"subscriber didFailWithError (%@)",
+    subConnected += 1;
+    NSLog(@"subscriber didFailWithError (%@)",
           subscriber.stream.streamId);
-    [streams removeObject:subscriber];
+    if(subConnected == SUBSCRIBERS_IN_PARALLEL) {
+        fNextBatch = true;
+
+        subConnected = 0;
+        
+    } else {
+        //todo sole subscriber
+        fNextBatch = false;
+    }
+
+    [streams removeObject:subscriber.stream];
   
 }
 
