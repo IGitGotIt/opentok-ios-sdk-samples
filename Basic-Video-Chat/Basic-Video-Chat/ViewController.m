@@ -11,11 +11,11 @@
 // *** Fill the following variables using your own Project info  ***
 // ***          https://dashboard.tokbox.com/projects            ***
 // Replace with your OpenTok API key
-static NSString* const kApiKey = @"100";
+static NSString* const kApiKey = @"";
 // Replace with your generated session ID
-static NSString* const kSessionId = @"2_MX4xMDB-fjE2MTUyNjg0MTMwMzl-WThISXFCMzI0cjB2TWxHOHBMcUhFMXhnfn4";
+static NSString* const kSessionId = @"";
 // Replace with your generated token
-static NSString* const kToken = @"T1==cGFydG5lcl9pZD0xMDAmc2RrX3ZlcnNpb249dGJwaHAtdjAuOTEuMjAxMS0wNy0wNSZzaWc9MzE3YTdkZjZlODk4MjFiYmJkNGM0NGEzN2UxMDNhMzhmN2E0MTNmODpzZXNzaW9uX2lkPTJfTVg0eE1EQi1makUyTVRVeU5qZzBNVE13TXpsLVdUaElTWEZDTXpJMGNqQjJUV3hIT0hCTWNVaEZNWGhuZm40JmNyZWF0ZV90aW1lPTE2MTUyNjg0MTMmcm9sZT1tb2RlcmF0b3Imbm9uY2U9MTYxNTI2ODQxMy4xMjQ4MTQzOTYxMDYmZXhwaXJlX3RpbWU9MTYxNzg2MDQxMw==";
+static NSString* const kToken = @"";
 #define SUBSCRIBERS_IN_PARALLEL 1
 NSMutableArray * streams;
 NSMutableArray * subscribersConnected;
