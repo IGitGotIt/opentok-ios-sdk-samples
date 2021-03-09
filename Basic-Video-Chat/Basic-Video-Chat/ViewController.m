@@ -19,8 +19,9 @@ static NSString* const kToken = @"T1==cGFydG5lcl9pZD0xMDAmc2RrX3ZlcnNpb249dGJwaH
 #define SUBSCRIBERS_IN_PARALLEL 1
 NSMutableArray * streams;
 NSMutableArray * subscribersConnected;
-NSMutableArray* subscribersInit;
-
+int subConnected = 0;
+bool fNextBatch = true;
+NSTimer *timer2;
 
 @interface ViewController ()<OTSessionDelegate, OTSubscriberDelegate, OTPublisherDelegate, OTPublisherKitAudioLevelDelegate>
 @property (nonatomic) OTSession *session;
@@ -40,7 +41,7 @@ static double widgetWidth = 16;
 
     streams = [[NSMutableArray alloc] init];
     subscribersConnected = [[NSMutableArray alloc] init];
-    subscribersInit = [[NSMutableArray alloc] init];
+
 //    NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:0.2
 //          target:[NSBlockOperation blockOperationWithBlock:^{
 //        for (OTSubscriber* s in subscriberArray) {
@@ -52,32 +53,36 @@ static double widgetWidth = 16;
 //          userInfo:nil
 //          repeats:YES
 //    ];
-    
-        NSTimer *timer2 = [NSTimer scheduledTimerWithTimeInterval:1
+        
+        timer2 = [NSTimer scheduledTimerWithTimeInterval:5
               target:[NSBlockOperation blockOperationWithBlock:^{
             NSLog(@"in Timer 2...");
             NSLog(@"number of streams %lu", (unsigned long)streams.count);
-            NSLog(@"number of initialized subscribers ** %lu **", subscribersInit.count);
             NSLog(@"number of connected subscribers ** %lu **", subscribersConnected.count);
-            for (int i=0; i < SUBSCRIBERS_IN_PARALLEL; i = i+1) {
+           
                 @try {
-                    OTStream * stream = streams[i];
-                    if(stream == nil) break;
-                    [self doSubscribe:stream];
-                    [streams removeObject:stream];
-                   
-                } @catch (NSException *exception) {
+                    for (int i=0; i < SUBSCRIBERS_IN_PARALLEL && fNextBatch; i = i+1) {
+                        OTStream * stream = streams[i];
+                        if(stream == nil) break;
+                        [self doSubscribe:stream];
+                        [streams removeObject:stream];
+                    }
+                }
+                @catch (NSException *exception) {
                     
-                    break;
+                    
+                } @finally {
+                    fNextBatch = false;
                 }
                 
-            }
+            
         
             }]
               selector:@selector(main)
               userInfo:nil
               repeats:YES
         ];
+    
     // Step 1: As the view comes into the foreground, initialize a new instance
     // of OTSession and begin the connection process.
     _session = [[OTSession alloc] initWithApiKey:kApiKey
@@ -166,8 +171,6 @@ audioLevelUpdated:(float)audioLevel {
     if (error)
     {
         [self showAlert:[error localizedDescription]];
-    } else {
-        [subscribersInit addObject:s];
     }
 }
 
@@ -208,6 +211,8 @@ audioLevelUpdated:(float)audioLevel {
 {
     NSLog(@"session streamCreated (%@) ", stream.streamId );
     [streams addObject:stream];
+   
+    
 }
 
 - (void)session:(OTSession*)session
@@ -248,6 +253,7 @@ didFailWithError:(OTError*)error
 
 - (void)subscriberDidConnectToStream:(OTSubscriberKit*)subscriber
 {
+    subConnected += 1;
     [subscribersConnected addObject:subscriber];
     
     NSLog(@"subscriberDidConnectToStream (%@) %lu",
@@ -258,8 +264,16 @@ didFailWithError:(OTError*)error
     [s.view setFrame:CGRectMake(0, subscribersConnected.count * widgetHeight, widgetWidth,
                                          widgetHeight)];
     [self.view addSubview:s.view];
-
-   
+    
+    if(subConnected == SUBSCRIBERS_IN_PARALLEL) {
+        fNextBatch = true;
+        [timer2 fire];
+        subConnected = 0;
+        
+    } else {
+        //todo sole subscriber
+        fNextBatch = false;
+    }
 }
 
 - (void)subscriber:(OTSubscriberKit*)subscriber
