@@ -19,7 +19,12 @@ static NSString* const kToken = @"";
 
 // This determines the number subscriptions to make in parallel.
 #define SUBSCRIBERS_IN_PARALLEL 1
-NSMutableArray * streams;
+// This determines the maximum number of participants we will load.
+#define MAX_SUBSCRIBERS 40
+// This defines how long to wait between checking for new members (in seconds)
+#define TIMER2_SECONDS 2
+
+NSMutableArray * streams; // streams to connect to
 NSMutableArray * subscribersConnected; // The subscribers already connected
 int subConnected = 0;
 bool fNextBatch = true;
@@ -60,7 +65,7 @@ static double widgetWidth = 16;
     
    /* This code uses a timer to periodically check the session for participants and create a queue of streams to subscribe to.
     */
-        timer2 = [NSTimer scheduledTimerWithTimeInterval:2
+        timer2 = [NSTimer scheduledTimerWithTimeInterval:TIMER2_SECONDS
               target:[NSBlockOperation blockOperationWithBlock:^{
             NSLog(@"in Timer 2...");
             NSLog(@"number of streams %lu", (unsigned long)streams.count);
@@ -219,7 +224,7 @@ audioLevelUpdated:(float)audioLevel {
 {
     /* This code is called whenever a new stream is created within the session */
     NSLog(@"session streamCreated (%@) ", stream.streamId );
-    if(streams.count > 40) { // If there are more than x streams already
+    if(streams.count > MAX_SUBSCRIBERS) { // If there are more than x streams already
         //throw an error / inform the user
         return;
        
