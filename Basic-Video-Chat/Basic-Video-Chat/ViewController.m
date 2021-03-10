@@ -16,13 +16,15 @@ static NSString* const kApiKey = @"";
 static NSString* const kSessionId = @"";
 // Replace with your generated token
 static NSString* const kToken = @"";
+
+// This determines the number subscriptions to make in parallel.
 #define SUBSCRIBERS_IN_PARALLEL 1
 NSMutableArray * streams;
-NSMutableArray * subscribersConnected;
+NSMutableArray * subscribersConnected; // The subscribers already connected
 int subConnected = 0;
 bool fNextBatch = true;
 NSTimer *timer2;
-int idleTimerCount = 0;
+int idleTimerCount = 0; // This keeps track of whether we successfully added new subscribers since the last time the timer fired.
 
 @interface ViewController ()<OTSessionDelegate, OTSubscriberDelegate, OTPublisherDelegate, OTPublisherKitAudioLevelDelegate>
 @property (nonatomic) OTSession *session;
@@ -40,7 +42,7 @@ static double widgetWidth = 16;
 {
     [super viewDidLoad];
 
-    streams = [[NSMutableArray alloc] init];
+    streams = [[NSMutableArray alloc] init]; // array of streams to subscribe to
     subscribersConnected = [[NSMutableArray alloc] init];
 
 //    NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:0.2
@@ -55,6 +57,9 @@ static double widgetWidth = 16;
 //          repeats:YES
 //    ];
         
+    
+   /* This code uses a timer to periodically check the session for participants and create a queue of streams to subscribe to.
+    */
         timer2 = [NSTimer scheduledTimerWithTimeInterval:2
               target:[NSBlockOperation blockOperationWithBlock:^{
             NSLog(@"in Timer 2...");
@@ -65,8 +70,8 @@ static double widgetWidth = 16;
                     for (int i=0; i < SUBSCRIBERS_IN_PARALLEL && fNextBatch; i = i+1) {
                         OTStream * stream = streams[i];
                         if(stream == nil) break;
-                        [self doSubscribe:stream];
-                        [streams removeObject:stream];
+                        [self doSubscribe:stream]; // subscribe to the stream
+                        [streams removeObject:stream]; // remove the stream from our list to subscribe to
                     }
                     
                 }
@@ -109,6 +114,7 @@ audioLevelUpdated:(float)audioLevel {
 #pragma mark - OpenTok methods
 
 /** 
+/**
  * Asynchronously begins the session connect process. Some time later, we will
  * expect a delegate method to call us back with the results of this action.
  */
@@ -158,8 +164,8 @@ audioLevelUpdated:(float)audioLevel {
 
 /**
  * Instantiates a subscriber for the given stream and asynchronously begins the
- * process to begin receiving A/V content for this stream. Unlike doPublish, 
- * this method does not add the subscriber to the view hierarchy. Instead, we 
+ * process to begin receiving A/V content for this stream. Unlike doPublish,
+ * this method does not add the subscriber to the view hierarchy. Instead, we
  * add the subscriber only after it has connected and begins receiving data.
  */
 
@@ -167,7 +173,7 @@ audioLevelUpdated:(float)audioLevel {
 {
     NSLog(@"doSubscribe (%@) ", stream.streamId );
     OTSubscriber *s = [[OTSubscriber alloc] initWithStream:stream delegate:self];
-   // _subscriber.subscribeToAudio = false;
+   // _subscriber.subscribeToAudio = false; // This is used in testing to prevent feedback.
     OTError *error = nil;
     [_session subscribe:s error:&error];
     if (error)
@@ -211,12 +217,13 @@ audioLevelUpdated:(float)audioLevel {
 - (void)session:(OTSession*)mySession
   streamCreated:(OTStream *)stream
 {
+    /* This code is called whenever a new stream is created within the session */
     NSLog(@"session streamCreated (%@) ", stream.streamId );
-    if(streams.count > 40) {
+    if(streams.count > 40) { // If there are more than x streams already
         //throw an error / inform the user
         return;
        
-    } else {
+    } else { // add the stream object to the array
         [streams addObject:stream];
     }
 }
@@ -259,6 +266,9 @@ didFailWithError:(OTError*)error
 
 - (void)subscriberDidConnectToStream:(OTSubscriberKit*)subscriber
 {
+    /* This code will wait for the number of SUBSCRIBERS_IN_PARALLEL to connect
+     and then go fetch the next batch.
+     */
     subConnected += 1;
     [subscribersConnected addObject:subscriber];
     
@@ -271,12 +281,12 @@ didFailWithError:(OTError*)error
                                          widgetHeight)];
     [self.view addSubview:s.view];
     
-    if(subConnected == SUBSCRIBERS_IN_PARALLEL) {
+    if(subConnected == SUBSCRIBERS_IN_PARALLEL) { // We successfully connected the subs requested.
         fNextBatch = true;
         [timer2 fire];
         subConnected = 0;
         
-    } else {
+    } else { // There are fewer subscribers in the queue than SUBSCRIBERS_IN_PARALLEL
         //todo sole subscriber
         fNextBatch = false;
     }
@@ -288,12 +298,12 @@ didFailWithError:(OTError*)error
     subConnected += 1;
     NSLog(@"subscriber didFailWithError (%@)",
           subscriber.stream.streamId);
-    if(subConnected == SUBSCRIBERS_IN_PARALLEL) {
+    if(subConnected == SUBSCRIBERS_IN_PARALLEL) { // If one or more failed, but we finished the queue, reset subConnected.
         fNextBatch = true;
 
         subConnected = 0;
         
-    } else {
+    } else { // The queue had fewer than the number of subs_in_parallel
         //todo sole subscriber
         fNextBatch = false;
     }
@@ -332,7 +342,7 @@ didFailWithError:(OTError*)error
 - (void)showAlert:(NSString *)string
 {
     // show alertview on main UI
-	dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(dispatch_get_main_queue(), ^{
         UIAlertController *alertVC = [UIAlertController alertControllerWithTitle:@"OTError"
                                                                          message:string
                                                                   preferredStyle:UIAlertControllerStyleAlert];
