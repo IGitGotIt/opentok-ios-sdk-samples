@@ -14,12 +14,16 @@ static NSString* const kSessionId = @"2_MX4xMDB-fjE2MTU0MTU0NzQ3OTh-aG1WTUViOW5m
 // Replace with your generated token
 static NSString* const kToken = @"T1==cGFydG5lcl9pZD0xMDAmc2RrX3ZlcnNpb249dGJwaHAtdjAuOTEuMjAxMS0wNy0wNSZzaWc9MGVjOTZiMDhkOGExYzYwZjM3NWYyZDVkNDdjNjE3YmZhNTA5MWQyNjpzZXNzaW9uX2lkPTJfTVg0eE1EQi1makUyTVRVME1UVTBOelEzT1RoLWFHMVdUVVZpT1c1bVZuZDBUR2g2SzNOaGVrb3hXRFJZZm40JmNyZWF0ZV90aW1lPTE2MTU0MTU0NzQmcm9sZT1tb2RlcmF0b3Imbm9uY2U9MTYxNTQxNTQ3NC45MTYzNDc0OTg4MTMzJmV4cGlyZV90aW1lPTE2MTgwMDc0NzQ=";
 
-#define SUBSCRIBERS_IN_PARALLEL 1
+#define MAX_SUBSCRIBERS_ALLOWED 40
+#define SUBSCRIBERS_IN_PARALLEL 2
 #define IDLE_TIME_OUT_COUNT 3
+
+#define INCOMPLETE_BATCH_AFTER_IDLING (idleTimerCount == IDLE_TIME_OUT_COUNT && streams.count > 0 && streams.count < SUBSCRIBERS_IN_PARALLEL)
+#define SUBSCRIBING_NOT_TRIGGERED_AND_STREAMS_EXIST (subscribersConnected.count == 0 && streams.count > 0)
+
 NSMutableArray * streams;
 NSMutableArray * subscribersConnected;
 int subConnected = 0;
-bool fNextBatch = false;
 NSTimer *timer2;
 int idleTimerCount = 0;
 
@@ -33,7 +37,7 @@ int idleTimerCount = 0;
 static double widgetHeight = 12;
 static double widgetWidth = 16;
 
-#define INCOMPLETE_BATCH_AFTER_IDLING (idleTimerCount == IDLE_TIME_OUT_COUNT && streams.count > 0 && streams.count < SUBSCRIBERS_IN_PARALLEL)
+
 #pragma mark - View lifecycle
 
 - (void)viewDidLoad
@@ -62,11 +66,11 @@ static double widgetWidth = 16;
                 NSLog(@"in Timer 2... idleTimeCount = %d", idleTimerCount);
                 NSLog(@"number of streams %lu", (unsigned long)streams.count);
                 NSLog(@"number of connected subscribers ** %lu **", subscribersConnected.count);
-                
-                if (INCOMPLETE_BATCH_AFTER_IDLING ||
-                    streams.count >= SUBSCRIBERS_IN_PARALLEL) {
+                if (subscribersConnected.count == 0 && streams.count > 0)
+                if (INCOMPLETE_BATCH_AFTER_IDLING || SUBSCRIBING_NOT_TRIGGERED_AND_STREAMS_EXIST){
                         [self doBatchSubscribe];
                 }
+
                 if (idleTimerCount == IDLE_TIME_OUT_COUNT) {
                     idleTimerCount = 0;
                 }
@@ -99,7 +103,7 @@ audioLevelUpdated:(float)audioLevel {
 }
 #pragma mark - OpenTok methods
 
-/** 
+/**
  * Asynchronously begins the session connect process. Some time later, we will
  * expect a delegate method to call us back with the results of this action.
  */
@@ -149,8 +153,8 @@ audioLevelUpdated:(float)audioLevel {
 
 /**
  * Instantiates a subscriber for the given stream and asynchronously begins the
- * process to begin receiving A/V content for this stream. Unlike doPublish, 
- * this method does not add the subscriber to the view hierarchy. Instead, we 
+ * process to begin receiving A/V content for this stream. Unlike doPublish,
+ * this method does not add the subscriber to the view hierarchy. Instead, we
  * add the subscriber only after it has connected and begins receiving data.
  */
 
@@ -176,6 +180,7 @@ audioLevelUpdated:(float)audioLevel {
             if(stream == nil) break;
             [self doSubscribe:stream];
             [streams removeObject:stream];
+            idleTimerCount = 0;
         }
     }  @catch (NSException *exception) {
         
@@ -220,7 +225,7 @@ audioLevelUpdated:(float)audioLevel {
   streamCreated:(OTStream *)stream
 {
     NSLog(@"session streamCreated (%@) ", stream.streamId );
-    if(streams.count > 40) {
+    if(streams.count > MAX_SUBSCRIBERS_ALLOWED) {
         //throw an error / inform the user
         return;
        
@@ -291,17 +296,12 @@ didFailWithError:(OTError*)error
     subConnected += 1;
     NSLog(@"subscriber didFailWithError (%@)",
           subscriber.stream.streamId);
-    if(subConnected == SUBSCRIBERS_IN_PARALLEL) {
-        fNextBatch = true;
-
-        subConnected = 0;
-        
-    } else {
-        //todo sole subscriber
-        fNextBatch = false;
-    }
-
     [streams removeObject:subscriber.stream];
+    if(subConnected == SUBSCRIBERS_IN_PARALLEL) {
+        [self doBatchSubscribe]; //of others
+        subConnected = 0;
+    }
+  
   
 }
 
@@ -336,7 +336,7 @@ didFailWithError:(OTError*)error
 - (void)showAlert:(NSString *)string
 {
     // show alertview on main UI
-	dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(dispatch_get_main_queue(), ^{
         UIAlertController *alertVC = [UIAlertController alertControllerWithTitle:@"OTError"
                                                                          message:string
                                                                   preferredStyle:UIAlertControllerStyleAlert];
