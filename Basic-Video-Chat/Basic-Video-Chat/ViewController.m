@@ -8,19 +8,18 @@
 #import "ViewController.h"
 #import <OpenTok/OpenTok.h>
 
-// *** Fill the following variables using your own Project info  ***
-// ***          https://dashboard.tokbox.com/projects            ***
-// Replace with your OpenTok API key
-static NSString* const kApiKey = @"";
+static NSString* const kApiKey = @"100";
 // Replace with your generated session ID
-static NSString* const kSessionId = @"";
+static NSString* const kSessionId = @"2_MX4xMDB-fjE2MTU0MTU0NzQ3OTh-aG1WTUViOW5mVnd0TGh6K3NhekoxWDRYfn4";
 // Replace with your generated token
-static NSString* const kToken = @"";
+static NSString* const kToken = @"T1==cGFydG5lcl9pZD0xMDAmc2RrX3ZlcnNpb249dGJwaHAtdjAuOTEuMjAxMS0wNy0wNSZzaWc9MGVjOTZiMDhkOGExYzYwZjM3NWYyZDVkNDdjNjE3YmZhNTA5MWQyNjpzZXNzaW9uX2lkPTJfTVg0eE1EQi1makUyTVRVME1UVTBOelEzT1RoLWFHMVdUVVZpT1c1bVZuZDBUR2g2SzNOaGVrb3hXRFJZZm40JmNyZWF0ZV90aW1lPTE2MTU0MTU0NzQmcm9sZT1tb2RlcmF0b3Imbm9uY2U9MTYxNTQxNTQ3NC45MTYzNDc0OTg4MTMzJmV4cGlyZV90aW1lPTE2MTgwMDc0NzQ=";
+
 #define SUBSCRIBERS_IN_PARALLEL 1
+#define IDLE_TIME_OUT_COUNT 3
 NSMutableArray * streams;
 NSMutableArray * subscribersConnected;
 int subConnected = 0;
-bool fNextBatch = true;
+bool fNextBatch = false;
 NSTimer *timer2;
 int idleTimerCount = 0;
 
@@ -34,6 +33,7 @@ int idleTimerCount = 0;
 static double widgetHeight = 12;
 static double widgetWidth = 16;
 
+#define INCOMPLETE_BATCH_AFTER_IDLING (idleTimerCount == IDLE_TIME_OUT_COUNT && streams.count > 0 && streams.count < SUBSCRIBERS_IN_PARALLEL)
 #pragma mark - View lifecycle
 
 - (void)viewDidLoad
@@ -55,31 +55,22 @@ static double widgetWidth = 16;
 //          repeats:YES
 //    ];
         
-        timer2 = [NSTimer scheduledTimerWithTimeInterval:2
+        timer2 = [NSTimer scheduledTimerWithTimeInterval:1
               target:[NSBlockOperation blockOperationWithBlock:^{
-            NSLog(@"in Timer 2...");
-            NSLog(@"number of streams %lu", (unsigned long)streams.count);
-            NSLog(@"number of connected subscribers ** %lu **", subscribersConnected.count);
-           
-                @try {
-                    for (int i=0; i < SUBSCRIBERS_IN_PARALLEL && fNextBatch; i = i+1) {
-                        OTStream * stream = streams[i];
-                        if(stream == nil) break;
-                        [self doSubscribe:stream];
-                        [streams removeObject:stream];
-                    }
-                    
-                }
-                @catch (NSException *exception) {
-                    
-                    
-                } @finally {
-                    fNextBatch = false;
-                }
-                
             
-        
-            }]
+                idleTimerCount +=1;
+                NSLog(@"in Timer 2... idleTimeCount = %d", idleTimerCount);
+                NSLog(@"number of streams %lu", (unsigned long)streams.count);
+                NSLog(@"number of connected subscribers ** %lu **", subscribersConnected.count);
+                
+                if (INCOMPLETE_BATCH_AFTER_IDLING ||
+                    streams.count >= SUBSCRIBERS_IN_PARALLEL) {
+                        [self doBatchSubscribe];
+                }
+                if (idleTimerCount == IDLE_TIME_OUT_COUNT) {
+                    idleTimerCount = 0;
+                }
+              }]
               selector:@selector(main)
               userInfo:nil
               repeats:YES
@@ -176,6 +167,23 @@ audioLevelUpdated:(float)audioLevel {
     }
 }
 
+- (void)doBatchSubscribe
+{
+    NSLog(@"doBatchSubscribe");
+    @try {
+        for (int i=0; i < SUBSCRIBERS_IN_PARALLEL; i = i+1) {
+            OTStream * stream = streams[i];
+            if(stream == nil) break;
+            [self doSubscribe:stream];
+            [streams removeObject:stream];
+        }
+    }  @catch (NSException *exception) {
+        
+        
+    } @finally {
+       
+    }
+}
 /**
  * Cleans the subscriber from the view hierarchy, if any.
  * NB: You do *not* have to call unsubscribe in your controller in response to
@@ -272,13 +280,8 @@ didFailWithError:(OTError*)error
     [self.view addSubview:s.view];
     
     if(subConnected == SUBSCRIBERS_IN_PARALLEL) {
-        fNextBatch = true;
-        [timer2 fire];
+        [self doBatchSubscribe];
         subConnected = 0;
-        
-    } else {
-        //todo sole subscriber
-        fNextBatch = false;
     }
 }
 
@@ -308,6 +311,7 @@ didFailWithError:(OTError*)error
     streamCreated:(OTStream *)stream
 {
     NSLog(@"Publishing");
+  //  [self session:_session streamCreated:stream];
 
 }
 
