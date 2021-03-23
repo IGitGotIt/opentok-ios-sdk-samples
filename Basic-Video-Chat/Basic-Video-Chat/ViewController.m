@@ -8,24 +8,30 @@
 #import "ViewController.h"
 #import <OpenTok/OpenTok.h>
 
-static NSString* const kApiKey = @"100";
+static NSString* const kApiKey = @"";
 // Replace with your generated session ID
-static NSString* const kSessionId = @"2_MX4xMDB-fjE2MTU0MTU0NzQ3OTh-aG1WTUViOW5mVnd0TGh6K3NhekoxWDRYfn4";
+static NSString* const kSessionId = @"";
 // Replace with your generated token
-static NSString* const kToken = @"T1==cGFydG5lcl9pZD0xMDAmc2RrX3ZlcnNpb249dGJwaHAtdjAuOTEuMjAxMS0wNy0wNSZzaWc9MGVjOTZiMDhkOGExYzYwZjM3NWYyZDVkNDdjNjE3YmZhNTA5MWQyNjpzZXNzaW9uX2lkPTJfTVg0eE1EQi1makUyTVRVME1UVTBOelEzT1RoLWFHMVdUVVZpT1c1bVZuZDBUR2g2SzNOaGVrb3hXRFJZZm40JmNyZWF0ZV90aW1lPTE2MTU0MTU0NzQmcm9sZT1tb2RlcmF0b3Imbm9uY2U9MTYxNTQxNTQ3NC45MTYzNDc0OTg4MTMzJmV4cGlyZV90aW1lPTE2MTgwMDc0NzQ=";
+static NSString* const kToken = @"";
 
 #define MAX_SUBSCRIBERS_ALLOWED 40
 #define SUBSCRIBERS_IN_PARALLEL 2
-#define IDLE_TIME_OUT_COUNT 3
+#define CHECK_TICKS 3
 
-#define INCOMPLETE_BATCH_AFTER_IDLING (idleTimerCount == IDLE_TIME_OUT_COUNT && streams.count > 0 && streams.count < SUBSCRIBERS_IN_PARALLEL)
+#define INCOMPLETE_BATCH_CHECK_TICKS (tick == CHECK_TICKS && streams.count > 0 && streams.count < SUBSCRIBERS_IN_PARALLEL)
 #define SUBSCRIBING_NOT_TRIGGERED_AND_STREAMS_EXIST (subscribersConnected.count == 0 && streams.count > 0)
+
 
 NSMutableArray * streams;
 NSMutableArray * subscribersConnected;
-int subConnected = 0;
-NSTimer *timer2;
-int idleTimerCount = 0;
+int batchSubCallbacked = 0;
+
+#pragma mark - timer and its variables
+NSTimer *timer;
+int tick = 0;
+uint s[CHECK_TICKS],st[CHECK_TICKS]; //s -subConnected , st - streamsPresent
+//end of timer and its variables
+
 
 @interface ViewController ()<OTSessionDelegate, OTSubscriberDelegate, OTPublisherDelegate, OTPublisherKitAudioLevelDelegate>
 @property (nonatomic) OTSession *session;
@@ -59,20 +65,38 @@ static double widgetWidth = 16;
 //          repeats:YES
 //    ];
         
-        timer2 = [NSTimer scheduledTimerWithTimeInterval:1
+        timer = [NSTimer scheduledTimerWithTimeInterval:1
               target:[NSBlockOperation blockOperationWithBlock:^{
-            
-                idleTimerCount +=1;
-                NSLog(@"in Timer 2... idleTimeCount = %d", idleTimerCount);
+                if(tick > CHECK_TICKS) { //guard
+                    tick = 0;
+                }
+                //s -subConnected , st - streamsPresent
+                s[tick] = (uint)subscribersConnected.count;
+                st[tick] = (uint)streams.count;
+                tick +=1;
+
+                NSLog(@"in Timer 2... idleTimeCount = %d", tick);
                 NSLog(@"number of streams %lu", (unsigned long)streams.count);
                 NSLog(@"number of connected subscribers ** %lu **", subscribersConnected.count);
-                if (subscribersConnected.count == 0 && streams.count > 0)
-                if (INCOMPLETE_BATCH_AFTER_IDLING || SUBSCRIBING_NOT_TRIGGERED_AND_STREAMS_EXIST){
+               
+                if (INCOMPLETE_BATCH_CHECK_TICKS || SUBSCRIBING_NOT_TRIGGERED_AND_STREAMS_EXIST){
                         [self doBatchSubscribe];
                 }
 
-                if (idleTimerCount == IDLE_TIME_OUT_COUNT) {
-                    idleTimerCount = 0;
+                if (tick == CHECK_TICKS) {
+                    //CHECK_IF_SUBSCRIBERS_CLOGGED due to failed sub connect
+                    bool clogged;
+                    int i = CHECK_TICKS - 1; //zero based
+                    while(i > 0) {
+                        //s -subConnected , st - streamsPresent
+                        clogged = (s[i] == s[i-1]) && (st[i] == st[i-1]);
+                        i--;
+                    }
+                    if (clogged && streams && streams.count > 0) {
+                        [self doSubscribe:streams[0]];  //trickle one stream
+                        [streams removeObjectAtIndex:0];
+                    }
+                    tick = 0;
                 }
               }]
               selector:@selector(main)
@@ -160,6 +184,7 @@ audioLevelUpdated:(float)audioLevel {
 
 - (void)doSubscribe:(OTStream*)stream
 {
+    if(stream == nil) return;
     NSLog(@"doSubscribe (%@) ", stream.streamId );
     OTSubscriber *s = [[OTSubscriber alloc] initWithStream:stream delegate:self];
    // _subscriber.subscribeToAudio = false;
@@ -180,7 +205,7 @@ audioLevelUpdated:(float)audioLevel {
             if(stream == nil) break;
             [self doSubscribe:stream];
             [streams removeObject:stream];
-            idleTimerCount = 0;
+            tick = 0;
         }
     }  @catch (NSException *exception) {
         
@@ -272,7 +297,7 @@ didFailWithError:(OTError*)error
 
 - (void)subscriberDidConnectToStream:(OTSubscriberKit*)subscriber
 {
-    subConnected += 1;
+    batchSubCallbacked += 1;
     [subscribersConnected addObject:subscriber];
     
     NSLog(@"subscriberDidConnectToStream (%@) %lu",
@@ -284,22 +309,22 @@ didFailWithError:(OTError*)error
                                          widgetHeight)];
     [self.view addSubview:s.view];
     
-    if(subConnected == SUBSCRIBERS_IN_PARALLEL) {
+    if(batchSubCallbacked == SUBSCRIBERS_IN_PARALLEL) {
         [self doBatchSubscribe];
-        subConnected = 0;
+        batchSubCallbacked = 0;
     }
 }
 
 - (void)subscriber:(OTSubscriberKit*)subscriber
   didFailWithError:(OTError*)error
 {
-    subConnected += 1;
+    batchSubCallbacked += 1;
     NSLog(@"subscriber didFailWithError (%@)",
           subscriber.stream.streamId);
     [streams removeObject:subscriber.stream];
-    if(subConnected == SUBSCRIBERS_IN_PARALLEL) {
+    if(batchSubCallbacked == SUBSCRIBERS_IN_PARALLEL) {
         [self doBatchSubscribe]; //of others
-        subConnected = 0;
+        batchSubCallbacked = 0;
     }
   
   
@@ -311,7 +336,7 @@ didFailWithError:(OTError*)error
     streamCreated:(OTStream *)stream
 {
     NSLog(@"Publishing");
-  //  [self session:_session streamCreated:stream];
+   // [self session:_session streamCreated:stream];
 
 }
 
