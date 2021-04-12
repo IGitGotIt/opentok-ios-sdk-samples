@@ -25,7 +25,7 @@
 
 
 #define kTimespanWithNoFramesBeforeRaisingAnError 20.0 // NSTimeInterval(secs)
-
+#define kVideoFrameScaleFactor 1.0
 typedef NS_ENUM(int32_t, OTCapturerErrorCode) {
 
     OTCapturerSuccess = 0,
@@ -67,6 +67,11 @@ typedef NS_ENUM(int32_t, OTCapturerErrorCode) {
     enum OTCapturerErrorCode _captureErrorCode;
     
     BOOL isFirstFrame;
+    
+    CIFilter* _scaleFilter;
+    CVPixelBufferPoolRef _pixelBufferPool;
+    CVPixelBufferRef _pixelBuffer;
+    CIContext * _ciContext;
 }
 
 @synthesize captureSession = _captureSession;
@@ -95,6 +100,9 @@ typedef NS_ENUM(int32_t, OTCapturerErrorCode) {
          addObserver:self
          selector:@selector(statusBarOrientationChange:)
          name:UIApplicationWillChangeStatusBarOrientationNotification object:nil];
+        
+        _scaleFilter = [CIFilter filterWithName:@"CILanczosScaleTransform"];
+        _ciContext = [CIContext contextWithOptions: nil];
     }
     return self;
 }
@@ -686,6 +694,72 @@ typedef NS_ENUM(int32_t, OTCapturerErrorCode) {
 
 }
 
+- (CIImage*) scaleFilterImage: (CIImage*)inputImage withAspectRatio:(CGFloat)aspectRatio scale:(CGFloat)scale
+{
+    [_scaleFilter setValue:inputImage forKey:kCIInputImageKey];
+    [_scaleFilter setValue:@(scale) forKey:kCIInputScaleKey];
+    //[scaleFilter setValue:@(aspectRatio) forKey:kCIInputAspectRatioKey];
+    return _scaleFilter.outputImage;
+}
+-(void)destroyPixelBuffers
+{
+    if(_pixelBuffer)
+        CVPixelBufferRelease(_pixelBuffer);
+    _pixelBuffer = nil;
+    
+    if(_pixelBufferPool)
+        CVPixelBufferPoolRelease(_pixelBufferPool);
+    _pixelBufferPool = nil;
+}
+- (void)createPixelBufferPoolWithWidth:(int)width height:(int)height
+{
+    
+    [self destroyPixelBuffers];
+    OSType pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange;
+    
+    CFMutableDictionaryRef sourcePixelBufferOptions = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+    CFNumberRef number = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &pixelFormat );
+    CFDictionaryAddValue( sourcePixelBufferOptions, kCVPixelBufferPixelFormatTypeKey, number );
+    CFRelease( number );
+    
+    number = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &width );
+    CFDictionaryAddValue( sourcePixelBufferOptions, kCVPixelBufferWidthKey, number );
+    CFRelease( number );
+    
+    number = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &height );
+    CFDictionaryAddValue( sourcePixelBufferOptions, kCVPixelBufferHeightKey, number );
+    CFRelease( number );
+    
+    ((__bridge NSMutableDictionary *)sourcePixelBufferOptions)[(id)kCVPixelBufferIOSurfacePropertiesKey] = @{ @"IOSurfaceIsGlobal" : @YES };
+    
+    CVPixelBufferPoolCreate( kCFAllocatorDefault, NULL, sourcePixelBufferOptions, &_pixelBufferPool);
+}
+- (void) processPixelBuffer:(CVPixelBufferRef)pixelBuffer timeStamp:(CMTime)ts
+{
+    CIImage *ciImage = [CIImage imageWithCVPixelBuffer:pixelBuffer
+                                               options:nil];
+    
+    ciImage = [self scaleFilterImage:ciImage
+                     withAspectRatio:1.0 scale:kVideoFrameScaleFactor];
+    
+    if(_pixelBufferPool == nil ||
+       CVPixelBufferGetWidth(pixelBuffer) != CVPixelBufferGetWidth(_pixelBuffer) ||
+       CVPixelBufferGetHeight(pixelBuffer) != CVPixelBufferGetHeight(_pixelBuffer))
+    {
+        [self destroyPixelBuffers];
+        [self createPixelBufferPoolWithWidth:ciImage.extent.size.width
+                                      height:ciImage.extent.size.height];
+        CVPixelBufferPoolCreatePixelBuffer(NULL, _pixelBufferPool, &_pixelBuffer);
+    }
+    
+    [_ciContext render:ciImage toCVPixelBuffer:_pixelBuffer];
+    
+    [self.videoCaptureConsumer consumeImageBuffer:_pixelBuffer
+                                      orientation:OTVideoOrientationUp
+                                        timestamp:ts
+                                         metadata:nil];
+}
+
 - (void)captureOutput:(AVCaptureOutput *)captureOutput
 didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
        fromConnection:(AVCaptureConnection *)connection {
@@ -710,10 +784,12 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     
     CMTime time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-    [_videoCaptureConsumer consumeImageBuffer:imageBuffer
-                                  orientation:[self currentDeviceOrientation]
-                                    timestamp:time
-                                     metadata:_videoFrame.metadata];
+    [self processPixelBuffer:CMSampleBufferGetImageBuffer(sampleBuffer)
+                   timeStamp:CMSampleBufferGetPresentationTimeStamp(sampleBuffer)];
+//    [_videoCaptureConsumer consumeImageBuffer:imageBuffer
+//                                  orientation:[self currentDeviceOrientation]
+//                                    timestamp:time
+//                                     metadata:_videoFrame.metadata];
     
 }
 
